@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from itertools import combinations
 
-
 #Definicion variables, matrices y listas
 x, y = sympy.symbols('x y')
 Valor_ecuaciones = ["y=0","x=0"]
@@ -14,7 +13,7 @@ Lista_inecuaciones = [x>=0, y>=0]
 x_vals = []
 y_vals = []
 valores_maximos_x_y = [0,0]
-
+lista_restricciones = []
 
 def transformar_funcion(funcion):
     funcion = re.sub(r'(\d)([xy])', r'\g<1>*\2', funcion)
@@ -49,18 +48,21 @@ def Puntos(Valor_ecuaciones, Lista_inecuaciones,Funcion,Bandera_Max_Min):
         parts[0] = sympy.simplify(parts[0])
 
         # Modificamos la lista original, se transforma a una ecuacion lineal
+        lista_restricciones.append(parts)
         Valor_ecuaciones[i] = parts
+        print(type(parts))
         Valor_ecuaciones[i] = Eq(Valor_ecuaciones[i][0], Valor_ecuaciones[i][1])
     #combinamos todas las ecuaciones resultantes para calcular los puntos de cruce
     combinaciones = list(combinations(Valor_ecuaciones,2))
-
+    print(lista_restricciones)
     #Iniciamos for para recorrer las restricciones y buscamos los puntos factibles
+    print(combinaciones)
     for comb in combinaciones:
         sol = sympy.solve(comb, (x, y))
         if not sol:
             continue
-        x_sol, y_sol = sol[x], sol[y]
-        
+        x_sol, y_sol = float(sol[x]), float(sol[y])
+        print(sol)
         #verificamos que el valor x e y son los mas altos
         if not valores_maximos_x_y[0] > x_sol:
             valores_maximos_x_y[0] = int(x_sol)
@@ -70,7 +72,10 @@ def Puntos(Valor_ecuaciones, Lista_inecuaciones,Funcion,Bandera_Max_Min):
         # Evaluamos las desigualdades para este punto
         if not all(desig.subs({x:x_sol, y:y_sol}) for desig in Lista_inecuaciones):
             continue
-        
+        print(x_sol, y_sol)
+        print(type(x_sol))
+        print(float(x_sol))
+
         #Transformamos la funcion objetivo a sympy y evaluamos el punto en ella
         Funcion_sympy = sympify(Funcion)
         valor = Funcion_sympy.subs({x: x_sol, y: y_sol})
@@ -115,9 +120,15 @@ def graficar(Funcion, Lista_combinada_inecuaciones, x_vals, y_vals,valor_optimo,
     # Graficamos la línea de nivel de la función objetivo
     X, Y = np.meshgrid(np.linspace(-10, 100, 100), np.linspace(-10, 100, 100))
     Z = eval(Funcion.upper())
-    ax.contour(X, Y, Z, levels=[valor_optimo], colors='red')
-    
 
+    ax.contour(X, Y, Z, levels=[valor_optimo], colors='blue')
+    #ax.contour(X, Y, Z2, colors='black')
+    
+    colors1 = plt.rcParams['axes.prop_cycle'].by_key()['color'][:30]
+    print(colors1)
+    for i in range(2,len(lista_restricciones)):
+        ZX = eval(str(lista_restricciones[i][0]).upper()+"-"+str(lista_restricciones[i][1]))
+        ax.contour(X, Y, ZX, colors=colors1[i])
 
     # Configuramos los ejes y mostramos la figura
   
@@ -135,12 +146,10 @@ def graficar(Funcion, Lista_combinada_inecuaciones, x_vals, y_vals,valor_optimo,
             plt.Line2D([0],[0], linestyle="solid", c='r', label='Función objetivo')]
     ax.legend(proxy, ["Región factible\n"+str(Lista_inecuaciones), "Puntos", "Función objetivo\n"+texto_funcion+" = "+str(valor_optimo)])
 
-
     plt.show()
 
 def funcion():
     #Funcion general, se encarga de pedir datos y correr el resto de codigo
-
     Bandera_Max_Min = int(input("Desear maximizar(1) o minimizar(2): "))
     Funcion = input("Ingrese la funcion en orden(N*x+N*y): ")
     Funcion = transformar_funcion(Funcion)
@@ -168,7 +177,6 @@ def funcion():
     #obtencion de los puntos optimos para min y max, y graficacion
     valor_optimo,sol_optima = Puntos(Valor_ecuaciones, Lista_inecuaciones,Funcion,Bandera_Max_Min)
     graficar(Funcion,Lista_combinada_inecuaciones,x_vals, y_vals,valor_optimo,sol_optima) 
-
 
 #llamado de funciones
 
