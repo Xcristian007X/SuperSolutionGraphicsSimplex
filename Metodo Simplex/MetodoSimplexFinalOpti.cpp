@@ -2,7 +2,6 @@
 #include <vector>
 #include <limits>
 #include <cmath>
-#include <regex>
 using namespace std;
 
 // Funcion que imprime una matriz
@@ -15,7 +14,6 @@ void printMatrix(vector<vector<double>>& matrix) {
     }
     cout << endl;
 }
-
 void printMatrix2(vector<vector<double>>& matrix,vector<string>& coll,vector<string>&fill) {
     int cont=0;
     for(int i=0;i<coll.size();i++){
@@ -120,7 +118,7 @@ vector<vector<double>> simplexaumentadotable(vector<vector<double>>& tableau, ve
     if (mixto == true){
         cout << "Metodo Aumentado mixto - Agregar variables de holgura" << endl;
         //Crea una tabla inicial con las dimenciones del numero de restricciones y el numero de variables de decision
-        vector<vector<double>> tableau2(n_restricciones, vector<double>(n_variables_decision + acumulador_inverso));
+        vector<vector<double>> tableau2(n_restricciones, vector<double>(n_variables_decision_heredado + n_restricciones + acumulador));
 
         for (int a = 0; a <= n_restricciones-1; a++ ){
             for (int b = 0; b <= n_variables_decision-1; b++){
@@ -128,9 +126,10 @@ vector<vector<double>> simplexaumentadotable(vector<vector<double>>& tableau, ve
             }
         }
 
-        for (int d = acumulador+1; d < n_restricciones; d++) {
+
+        for (int d = acumulador_inverso; d < n_restricciones; d++) {
             //Inserta un 1 en la interseccion de las variables de holgura con la restriccion del comentado anterior
-            tableau2[d][n_variables_decision_heredado + acumulador -1 + d] = 1;
+            tableau2[d][n_variables_decision - acumulador_inverso - 1 + d] = 1;
             //Inserta el lado derecho de las restricciones con la limitante anterior
             //tableau2[d][n_variables_decision + n_restricciones-2] = recursos_restricciones[i];
             
@@ -143,119 +142,120 @@ vector<vector<double>> simplexaumentadotable(vector<vector<double>>& tableau, ve
         cout << "Tabla inicial:" << endl;
         printMatrix(tableau2);
 
-        //simplexartificial(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_minimize, bool mixto, int acumulador, int acumulador_inverso);
+        //simplexartificial(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_maximization, bool mixto, int acumulador, int acumulador_inverso);
         return tableau2;
 
     } else {
-        //La explicacion es la misma que las anteriores, solo que se llama al afuncion eliminar columna y se aplica el modo 2 de gauss jordan
-        cout << "Metodo M2F" << endl;
-        cout << "Tabla inicial M2F Fase 2:" << endl;
 
-        for (int g = n_variables_decision_heredado+1; g < n_variables_decision-acumulador_inverso-1; g++){
-            eliminarColumna(tableau, g);
-            n_variables_decision--;
+    //La explicacion es la misma que las anteriores, solo que se llama al afuncion eliminar columna y se aplica el modo 2 de gauss jordan
+    cout << "Metodo M2F" << endl;
+    cout << "Tabla inicial M2F Fase 2:" << endl;
+
+    //eliminar columnas artificiales
+    for (int g = n_variables_decision_heredado+1; g < n_variables_decision-acumulador-1; g++){
+        eliminarColumna(tableau, g);
+        n_variables_decision--;
+    }
+
+    //incorpora los valores de la funcion objetivo
+    for (int h = 0; h < n_variables_decision_heredado; h++){
+        tableau[0][h]= coeficientes_F_O[h];
+    }
+
+    printMatrix(tableau);
+
+    cout << "Tabla procesada con Gauss Jordan:" << endl;
+
+    //CORREGIR ESTO!! ESTO SE DEBE DETECTAR CUANTAS VARIABLES BASICAS ESTAN EN LAS DECISION (X1,X2) Y ELEGIR ESAS FILAS, NO POR EL ACUMULADOR
+    if (!acumulador == 0 ){
+        for (int e = 0; e < n_variables_decision_heredado-acumulador; e++){
+            GaussJordan(tableau,tableau[0][e],1, false, 0);
+            printMatrix(tableau);
         }
-
-        //incorpora los valores de la funcion objetivo
-        for (int h = 0; h < n_variables_decision_heredado; h++){
-            tableau[0][h]= coeficientes_F_O[h];
-        }
-
-        printMatrix(tableau);
-
-        cout << "Tabla procesada con Gauss Jordan:" << endl;
-
-        if (!acumulador == 0 ){
-            //Modificar, leyendo el valor de los vectores si las basicas coinciden con las de decision y si son iguales a 0
-            for (int e = 0; e < acumulador; e++){
-                GaussJordan(tableau,tableau[0][e],1, false, 0);
-                printMatrix(tableau);
+        cout << "Metodo Aumentado" << endl;
+        while (true) {
+            int pos_variable_decision = 0;
+            for (int d = 1; d < n_variables_decision-1; d++) {
+                if (tableau[0][d] < tableau[0][pos_variable_decision]) {
+                    pos_variable_decision = d;
+                }
             }
-            
-            cout << "Metodo Aumentado" << endl;
-            while (true) {
-                int pos_variable_decision = 0;
-                for (int d = 1; d < n_variables_decision-1; d++) {
-                    if (tableau[0][d] < tableau[0][pos_variable_decision]) {
-                        pos_variable_decision = d;
+            if (tableau[0][pos_variable_decision] >= 0) {
+                break;
+            }
+            int pos_fila_pivot = -1;
+            double coeficiente_pivot = numeric_limits<double>::max();
+            for (int l = 1; l <= n_restricciones-1; l++) {
+                if (tableau[l][pos_variable_decision] > 0) {
+                    double coeficiente_pivot_t = tableau[l][n_variables_decision -1] / tableau[l][pos_variable_decision];
+                    if (coeficiente_pivot_t < coeficiente_pivot) {
+                        coeficiente_pivot = coeficiente_pivot_t;
+                        pos_fila_pivot = l;
                     }
                 }
-                if (tableau[0][pos_variable_decision] >= 0) {
-                    break;
-                }
-                int pos_fila_pivot = -1;
-                double coeficiente_pivot = numeric_limits<double>::max();
-                for (int l = 1; l <= n_restricciones-1; l++) {
-                    if (tableau[l][pos_variable_decision] > 0) {
-                        double coeficiente_pivot_t = tableau[l][n_variables_decision -1] / tableau[l][pos_variable_decision];
-                        if (coeficiente_pivot_t < coeficiente_pivot) {
-                            coeficiente_pivot = coeficiente_pivot_t;
-                            pos_fila_pivot = l;
+            }
+
+            if (pos_fila_pivot == -1) {
+                throw runtime_error("El problema lineal tiene infinitas soluciones");
+            }
+
+            double pivot_actual = tableau[pos_fila_pivot][pos_variable_decision];
+            for (int o = 0; o <= n_variables_decision -1; o++) {
+                tableau[pos_fila_pivot][o] /= pivot_actual;
+            }
+
+            for (int p = 0; p <= n_restricciones-1; p++) {
+                if (p != pos_fila_pivot) {
+                    double valor_multiplicar = tableau[p][pos_variable_decision];
+                    for (int q = 0; q <= n_variables_decision -1; q++) {
+                        double superpivot = tableau[p][q] - valor_multiplicar * tableau[pos_fila_pivot][q];
+                        bool sendocero= __FLT_EPSILON__>= fabs(superpivot);
+                        bool sendocero2= numeric_limits<double>::epsilon() >= fabs(superpivot);
+                        if (sendocero==1 or sendocero2==1){ 
+                            tableau[p][q] = 0;
+                        } else {
+                            tableau[p][q] =superpivot;
                         }
-                    }
-                }
-
-                if (pos_fila_pivot == -1) {
-                    throw runtime_error("El problema lineal tiene infinitas soluciones");
-                }
-
-                double pivot_actual = tableau[pos_fila_pivot][pos_variable_decision];
-                for (int o = 0; o <= n_variables_decision -1; o++) {
-                    tableau[pos_fila_pivot][o] /= pivot_actual;
-                }
-
-                for (int p = 0; p <= n_restricciones-1; p++) {
-                    if (p != pos_fila_pivot) {
-                        double valor_multiplicar = tableau[p][pos_variable_decision];
-                        for (int q = 0; q <= n_variables_decision -1; q++) {
-                            double superpivot = tableau[p][q] - valor_multiplicar * tableau[pos_fila_pivot][q];
-                            bool sendocero= __FLT_EPSILON__>= fabs(superpivot);
-                            bool sendocero2= numeric_limits<double>::epsilon() >= fabs(superpivot);
-                            if (sendocero==1 or sendocero2==1){ 
-                                tableau[p][q] = 0;
-                            } else {
-                                tableau[p][q] =superpivot;
-                            }
                         
-                        }
                     }
                 }
-                cout << "pivot actual: " << pivot_actual << endl;
-                cout << "pivot actual fila: " << pos_fila_pivot << endl;
-                cout << "Menor Coeficiente: " << coeficiente_pivot << endl;
-                cout << "/////////////////////////////////////////////////////" << endl;
-                cout << endl;
-                cout << "Tabla actual:" << endl;
-                printMatrix(tableau);
             }
-        } else {
-            for (int e = 0; e < n_variables_decision_heredado; e++){
-                GaussJordan(tableau,tableau[0][e],1, false, 0);
-                printMatrix(tableau);
-            }
+            cout << "pivot actual: " << pivot_actual << endl;
+            cout << "pivot actual fila: " << pos_fila_pivot << endl;
+            cout << "Menor Coeficiente: " << coeficiente_pivot << endl;
+            cout << "/////////////////////////////////////////////////////" << endl;
+            cout << endl;
+            cout << "Tabla actual:" << endl;
+            printMatrix(tableau);
         }
-        vector<double> valor_variables_decision(n_variables_decision, 0);
-        vector<double> valor_variables_basicas(n_restricciones, 0);
-        double optimal_value = tableau[0][n_variables_decision + n_restricciones];
-        for (int j = 0; j < n_variables_decision; j++) {
-            bool variable_basica = false;
-            int pos_variable_basica = -1;
-            for (int i = 1; i < n_restricciones; i++) {
-                if (tableau[i][j] == 1 && !variable_basica) {
-                    variable_basica = true;
-                    pos_variable_basica = i;
-                } else if (tableau[i][j] != 0) {
-                    variable_basica = false;
-                    break;
-                }
-            }
-            if (variable_basica) {
-                valor_variables_decision[j] = tableau[pos_variable_basica][n_variables_decision + n_restricciones];
-            }
+    } else {
+        for (int e = 0; e < n_variables_decision_heredado; e++){
+            GaussJordan(tableau,tableau[0][e],1, false, 0);
+            printMatrix(tableau);
         }
+    }
+    vector<double> valor_variables_decision(n_variables_decision, 0);
+    vector<double> valor_variables_basicas(n_restricciones, 0);
+    double optimal_value = tableau[0][n_variables_decision + n_restricciones];
+    for (int j = 0; j < n_variables_decision; j++) {
+        bool variable_basica = false;
+        int pos_variable_basica = -1;
         for (int i = 1; i < n_restricciones; i++) {
-            valor_variables_basicas[i - 1] = tableau[i][n_variables_decision + n_restricciones];
+            if (tableau[i][j] == 1 && !variable_basica) {
+                variable_basica = true;
+                pos_variable_basica = i;
+            } else if (tableau[i][j] != 0) {
+                variable_basica = false;
+                break;
+            }
         }
+        if (variable_basica) {
+            valor_variables_decision[j] = tableau[pos_variable_basica][n_variables_decision + n_restricciones];
+        }
+    }
+    for (int i = 1; i < n_restricciones; i++) {
+        valor_variables_basicas[i - 1] = tableau[i][n_variables_decision + n_restricciones];
+    }
     vector<double> max_valores(n_variables_decision + n_restricciones + n_restricciones);
     int pos_max_valor = -1;
     double max_val = -numeric_limits<double>::min();
@@ -281,47 +281,50 @@ vector<vector<double>> simplexaumentadotable(vector<vector<double>>& tableau, ve
     }
 }
 
-vector<vector<double>> simplexaumentado(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_minimize, bool mixto, int acumulador, int acumulador_inverso) {
+vector<vector<double>> simplexaumentado(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_maximization, bool mixto, int acumulador, int acumulador_inverso) {
     int n_restricciones = coeficientes_restricciones.size();  // Numero de restricciones M
     int n_variables_decision = coeficientes_restricciones[0].size();  // Numero de variables N
-    int c=0;
-    vector<string> fil(n_restricciones + 1);//Vector para almacenar nombres de las filas
-    int cont=1;
-    vector <string> col(n_variables_decision + n_restricciones + 3);//Vector para almacenas nombres de las columnas
-    //Llenado de vector para nombres columnas.
-    for(int i=0;i<col.size();i++){
-        if(i==0){col[i]="VB";}
-        if(i==1){col[i]="Z";}
-        if(i==col.size()-1){col[i]="LD";}
-        if(i>1 && i<col.size()-1){
-            if(cont<=n_variables_decision){
-                col[i]="x"+to_string(cont);
-                cont=cont+1;
-            }else{
-                col[i]="h"+to_string(cont-n_variables_decision);
-                cont=cont+1;
-            }
-        }
-    }
-    //Llenado de vector para nombres de las filas
-    for(int i=0;i<fil.size();i++){
-        if(i==0){fil[i]="Z";}
-        if(i>0){
-            fil[i]="h"+to_string(i);
-        }
-    }
+
     // verifica si el problema es de maximizacion o no para convertir los coeficientes en negativo
-    if (!is_minimize) {
+    if (!is_maximization) {
         for (auto& val : coeficientes_F_O) {
             val = -val;
         }
     }
 
+    if (mixto == true){
+        cout << "Metodo Aumentado mixto - Agregar variables de holgura" << endl;
+        //Crea una tabla inicial con las dimenciones del numero de restricciones y el numero de variables de decision
+        vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + n_restricciones + 1));
+
+    
+        for (int i = 0; i < n_restricciones; i++) {
+            for (int j = 0; j < n_variables_decision; j++) {
+                //Inserta los coeficientes de las restricciones sin tocar la fila de Z (el +1)
+                tableau[i+1][j] = coeficientes_restricciones[i][j];
+            }
+            //Inserta un 1 en la interseccion de las variables de holgura con la restriccion del comentado anterior
+            tableau[i+1][n_variables_decision + i] = 1;
+            //Inserta el lado derecho de las restricciones con la limitante anterior
+            tableau[i+1][n_variables_decision + n_restricciones] = recursos_restricciones[i];
+        }
+
+        for (int j = 0; j < n_variables_decision; j++) {
+            //Inserta los coeficientes de la funcion objetivo
+            tableau[0][j] = coeficientes_F_O[j];
+        }
+
+        cout << "Tabla inicial:" << endl;
+        printMatrix(tableau);
+
+        //simplexartificial(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_maximization, bool mixto, int acumulador, int acumulador_inverso);
+        return tableau;
+    } else {
 
     
     cout << "Metodo Aumentado" << endl;
     //Crea una tabla inicial con las dimenciones del numero de restricciones y el numero de variables de decision
-    vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + n_restricciones + 2));
+    vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + n_restricciones + 1));
 
     
     for (int i = 0; i < n_restricciones; i++) {
@@ -341,8 +344,7 @@ vector<vector<double>> simplexaumentado(vector<double>& coeficientes_F_O, vector
     }
 
     cout << "Tabla inicial:" << endl;
-    //printMatrix(tableau);
-    printMatrix2(tableau,col,fil); 
+    printMatrix(tableau);
 
     while (true) {
         //Inicializa la posicion de la variable de decicion
@@ -480,15 +482,15 @@ vector<vector<double>> simplexaumentado(vector<double>& coeficientes_F_O, vector
     cout << "Variable h o e en la columna " << pos_max_valor << ": " << max_val << endl;
     cout << endl;
     return tableau;
-    
+    }
 }
 
-vector<vector<double>> simplexartificial(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_minimize, bool mixto, int acumulador, int acumulador_inverso) {
+vector<vector<double>> simplexartificial(vector<double>& coeficientes_F_O, vector<vector<double>>& coeficientes_restricciones, vector<double>& recursos_restricciones, bool is_maximization, bool mixto, int acumulador, int acumulador_inverso) {
     int n_restricciones = coeficientes_restricciones.size();  // Numero de restricciones
     int n_variables_decision = coeficientes_restricciones[0].size();  // Numero de variables de decision
 
     //El metodo es casi el mismo, solo que no se insertan los coeficientes de la f.o y antes de iniciar el pivoteo se aplica gauss jordan
-    if (!is_minimize) {
+    if (!is_maximization) {
         for (auto& val : coeficientes_F_O) {
             val = -val;
         }
@@ -496,7 +498,7 @@ vector<vector<double>> simplexartificial(vector<double>& coeficientes_F_O, vecto
 
     if (mixto == true) {
         cout << "Metodo M2F mixto - Agregar variables artificiales y de exceso" << endl;
-        vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + acumulador*2+1));
+        vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + n_restricciones));
         for (int i = 0; i < n_restricciones; i++) {
             for (int j = 0; j < n_variables_decision; j++) {
                 tableau[i + 1][j] = coeficientes_restricciones[i][j];
@@ -505,8 +507,8 @@ vector<vector<double>> simplexartificial(vector<double>& coeficientes_F_O, vecto
 
         for (int i = 0; i < acumulador; i++) {
             tableau[i + 1][n_variables_decision+i+i] = -1.0;
-            tableau[i + 1][n_variables_decision+1+i+i] = 1.0;
-            tableau[0][n_variables_decision+1+i*2] = 1.0;
+            tableau[i + 1][n_restricciones+i+i] = 1.0;
+            tableau[0][n_restricciones+i*2] = 1.0;
         }
 
          
@@ -517,7 +519,7 @@ vector<vector<double>> simplexartificial(vector<double>& coeficientes_F_O, vecto
     } else {
     //Diferencia principal, para rellenar la matriz correctamente se le suma 2 veces i para que coloque correctamente los 1 y -1
         cout << "Metodo M2F" << endl;
-        vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + n_restricciones*2 + 1));
+        vector<vector<double>> tableau(n_restricciones + 1, vector<double>(n_variables_decision + n_restricciones + n_restricciones + 1));
         for (int i = 0; i < n_restricciones; i++) {
             for (int j = 0; j < n_variables_decision; j++) {
                 tableau[i + 1][j] = coeficientes_restricciones[i][j];
@@ -634,16 +636,15 @@ vector<vector<double>> simplexartificialtable(vector<vector<double>>& tableau, v
                         coeficiente_pivot = coeficiente_pivot_t;
                         pos_fila_pivot = l;
                     }
-                } 
+                }
             }
-            
 
             if (pos_fila_pivot == -1) {
                 throw runtime_error("El problema lineal tiene infinitas soluciones");
             }
 
             double pivot_actual = tableau[pos_fila_pivot][pos_variable_decision];
-            for (int o = 0; o <= n_variables_decision - 1; o++) {
+            for (int o = 0; o <= n_variables_decision -1; o++) {
                 tableau[pos_fila_pivot][o] /= pivot_actual;
             }
 
@@ -665,7 +666,6 @@ vector<vector<double>> simplexartificialtable(vector<vector<double>>& tableau, v
             }
             cout << "pivot actual: " << pivot_actual << endl;
             cout << "pivot actual fila: " << pos_fila_pivot << endl;
-            cout << "columna variable de decision: " << pos_variable_decision << endl;
             cout << "Menor Coeficiente: " << coeficiente_pivot << endl;
             cout << "/////////////////////////////////////////////////////" << endl;
             cout << endl;
@@ -677,7 +677,7 @@ vector<vector<double>> simplexartificialtable(vector<vector<double>>& tableau, v
         }
     
 
-void verificador(vector<double> coeficientes_F_O, vector<vector<double>> coeficientes_restricciones, vector<double> recursos_restricciones, vector<string> signos, bool is_minimize){
+void verificador(vector<double> coeficientes_F_O, vector<vector<double>> coeficientes_restricciones, vector<double> recursos_restricciones, vector<string> signos, bool is_maximization){
     cout << "Verificador de metodologia: " << endl;
     //Verifica el signo de las restricciones y ejecuta el programa correspondiente
     int acumulador = 0;
@@ -693,27 +693,29 @@ void verificador(vector<double> coeficientes_F_O, vector<vector<double>> coefici
         mixto = false;
         if (signos[0] == "<="){
             cout << "-Programa procede a ejecutarse en modo aumentado" << endl;
-            simplexaumentado(coeficientes_F_O, coeficientes_restricciones, recursos_restricciones, is_minimize, mixto, 0, 0);
+            simplexaumentado(coeficientes_F_O, coeficientes_restricciones, recursos_restricciones, is_maximization, mixto, 0, 0);
         } else {
             cout << "-Programa procede a ejecutarse en modo M2F" << endl;
-            simplexartificial(coeficientes_F_O, coeficientes_restricciones, recursos_restricciones, is_minimize, mixto, 0, 0);
+            simplexartificial(coeficientes_F_O, coeficientes_restricciones, recursos_restricciones, is_maximization, mixto, 0, 0);
         }
     } else {
         //signo es de mayor e igual a menor e igual, sino arrojaria valores erroneos
         mixto = true;
         cout << "-Programa procede a ejecutarse en primera instancia en modo M2F" << endl;
         //Creacion de la tabla
-        vector<vector<double>> artificialmixto2 = simplexartificial(coeficientes_F_O, coeficientes_restricciones, recursos_restricciones, is_minimize, mixto, acumulador, acumulador_inverso);
+        vector<vector<double>> artificialmixto2 = simplexartificial(coeficientes_F_O, coeficientes_restricciones, recursos_restricciones, is_maximization, mixto, acumulador, acumulador_inverso);
         cout << "-Programa procede a ejecutarse en segunda instancia en modo aumentado" << endl;
         vector<vector<double>> aumentadomixto2 = simplexaumentadotable(artificialmixto2, coeficientes_F_O, recursos_restricciones, coeficientes_F_O.size(), acumulador, acumulador_inverso, mixto);
         
         //Resolucion del metodo
-        cout << "-Resolucion del problema aplicando M2F" << endl;
+        cout << "-Resolucion del problema aplicando " << endl;
         simplexartificialtable(aumentadomixto2, coeficientes_F_O, recursos_restricciones, coeficientes_F_O.size(), acumulador, acumulador_inverso);
        
     }
     
 }
+
+
 
 //PARSER y extras
 
@@ -745,30 +747,31 @@ double extraer_lado_derecho(string restriccion) {
 }
 
 string extraer_simbolo(string funcion){
+
     std::regex desigualdad("<=|>=|<|>|=");
     std::smatch match;
     if (std::regex_search(funcion, match, desigualdad)) {
         return match.str();
     }
-    return "";
 }
 
+
 int main() {
- //agregado de funciones por usuario
+    //agregado de funciones por usuario
     int num_variables;
     cout << "Ingrese la cantidad de variables en las restricciones: ";
-    //cin >> num_variables;
+    cin >> num_variables;
 
     int num_restricciones;
     cout << "Ingrese el número de restricciones: ";
-    //cin >> num_restricciones;
+    cin >> num_restricciones;
 
     vector<string> restricciones(num_restricciones);
     vector<string> restricciones_mayor_o_igual;
     vector<string> restricciones_menor_o_igual;
     for (int i = 0; i < num_restricciones; ++i) {
         cout << "Ingrese la restricción " << i + 1 << ": ";
-        //cin >> restricciones[i];
+        cin >> restricciones[i];
         if (restricciones[i].find(">=") != string::npos) {
             restricciones_mayor_o_igual.push_back(restricciones[i]);
         }
@@ -788,10 +791,12 @@ int main() {
 
     string funcion_objetivo;
     cout << "Ingrese la función objetivo: ";
-    //cin >> funcion_objetivo;
+    cin >> funcion_objetivo;
 
-    vector<double> coeficientes_objetivo = extraer_coeficientes(funcion_objetivo, num_variables);
-
+    vector<double> coeficientes = extraer_coeficientes(funcion_objetivo, num_variables);
+    for (int i = 0; i < coeficientes.size(); i++) {
+        coeficientes[i] *= -1;
+    }
     vector<vector<double>> coeficientes_restricciones;
     vector<double> lado_derecho;
     vector<string> simbolos_restriciones;
@@ -804,6 +809,7 @@ int main() {
         simbolos_restriciones.push_back(simbolo);
         coeficientes_restricciones.push_back(coeficientes); // Agregar coeficientes a la lista
     }
+
 
     // Problema Fabrica de productos de vidrio
     vector<double> recursos_restricciones1 = {4, 12, 18};
@@ -824,17 +830,10 @@ int main() {
     vector<string> signos2 = {"<=", "<=", "<=", "<="};
 
     //Problema Petroleo
-
-    vector<double> coeficientes_F_O32 = {-0.12, -0.15};
-    vector<double> recursos_restricciones32 = {300,36,90};
-    vector<vector<double>> coeficientes_restricciones32 = {{60, 60}, {12,6}, {10, 30}};
-    vector<string> signos32 = {">=", ">=", ">="};
-
-
     vector<double> coeficientes_F_O3 = {-0.12, -0.15};
-    vector<double> recursos_restricciones3 = {300,36,90,600};
-    vector<vector<double>> coeficientes_restricciones3 = {{60, 60}, {12,6}, {10, 30}, {2,2}};
-    vector<string> signos3 = {">=", ">=", ">=","<="};
+    vector<double> recursos_restricciones3 = {300,36,90};
+    vector<vector<double>> coeficientes_restricciones3 = {{60, 60}, {12,6}, {10, 30}};
+    vector<string> signos3 = {">=", ">=", ">="};
 
     vector<double> coeficientes_F_O4 = {-3, 2};
     vector<double> recursos_restricciones4 = {18,42,5};
@@ -846,18 +845,16 @@ int main() {
     vector<double> recursos_restricciones5 = {40, 70, 0, 180, 45};
     vector<vector<double>> coeficientes_restricciones5 = {{1, 0, 1, 0}, {0, 1, 0, 1}, {2, -1, 2, -1}, {1, 1, 0, 0}, {0, 0, 1, 1}};
     vector<string> signos5 = {">=", ">=", "<=", "<=", "<="};
-
-    //for (int e = 0; e < simbolos_restriciones.size(); e++){
-    //    cout << simbolos_restriciones[e] << endl;
-   //}
+    
 
     //Simplex Artificial solo aplica con restricciones de mayor o igual
-    //verificador(coeficientes_objetivo, coeficientes_restricciones, lado_derecho, simbolos_restriciones, true);
+
+    verificador(coeficientes_F_O1, coeficientes_restricciones1, recursos_restricciones1, signos1, true);
     //verificador(coeficientes_F_O2, coeficientes_restricciones2, recursos_restricciones2, signos2, true);
-    verificador(coeficientes_F_O5, coeficientes_restricciones5, recursos_restricciones5, signos5, true);
-    verificador(coeficientes_F_O32, coeficientes_restricciones32, recursos_restricciones32, signos32, false);
-    verificador(coeficientes_F_O3, coeficientes_restricciones3, recursos_restricciones3, signos3, true);
-    verificador(coeficientes_F_O4, coeficientes_restricciones4, recursos_restricciones4, signos4, true);
+    //verificador(coeficientes_F_O3, coeficientes_restricciones3, recursos_restricciones3, signos3, false);
+    //verificador(coeficientes_F_O4, coeficientes_restricciones4, recursos_restricciones4, signos4, true);
+    //verificador(coeficientes_F_O5, coeficientes_restricciones5, recursos_restricciones5, signos5, true);
+
     system("pause");
     return 0;
 }
