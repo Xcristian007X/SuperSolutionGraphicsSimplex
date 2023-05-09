@@ -79,12 +79,12 @@ def Puntos(Valor_ecuaciones, Lista_inecuaciones,Funcion,Bandera_Max_Min):
         valor = Funcion_sympy.subs({x: x_sol, y: y_sol})
         if Bandera_Max_Min == 1:
             #Verificacion de cumplimiento para valor maximo
-            if not valor_optimo or valor > valor_optimo:
+            if valor > valor_optimo:
                 sol_optima = (x_sol, y_sol)
                 valor_optimo = valor
         else:
             #Verificacion de cumplimiento para valor minimo
-            if valor_optimo or valor < valor_optimo:
+            if valor < valor_optimo:
                 sol_optima = (x_sol, y_sol)
                 valor_optimo = valor
         #Ingreso de todos los puntos x e y que se obtienen
@@ -96,7 +96,7 @@ def Puntos(Valor_ecuaciones, Lista_inecuaciones,Funcion,Bandera_Max_Min):
     print("Valor óptimo:", valor_optimo)
     return valor_optimo,sol_optima
 
-def graficar(Funcion, Lista_combinada_inecuaciones, x_vals, y_vals,valor_optimo,sol_optima):
+def graficar(Funcion, Lista_combinada_inecuaciones, x_vals, y_vals,valor_optimo,sol_optima,Bandera_max_min):
 
     # Convertimos la expresión booleana en una función de numpy
     f_np = lambdify((x, y), Lista_combinada_inecuaciones, 'numpy')
@@ -150,6 +150,10 @@ def graficar(Funcion, Lista_combinada_inecuaciones, x_vals, y_vals,valor_optimo,
     for i in range(len(proxy_restriciones)):
         proxy.append(proxy_restriciones[i])
         labels.append(Lista_inecuaciones[i+2])
+    if Bandera_max_min == 1:
+        plt.title("Maximizacion")
+    else:
+        plt.title("Minimizacion")
 
     
     ax.legend(proxy, labels)
@@ -184,12 +188,8 @@ def funcion():
 
     #obtencion de los puntos optimos para min y max, y graficacion
     valor_optimo,sol_optima = Puntos(Valor_ecuaciones, Lista_inecuaciones,Funcion,Bandera_Max_Min)
-    graficar(Funcion,Lista_combinada_inecuaciones,x_vals, y_vals,valor_optimo,sol_optima) 
+    graficar(Funcion,Lista_combinada_inecuaciones,x_vals, y_vals,valor_optimo,sol_optima,Bandera_Max_Min) 
 
 #llamado de funciones
 
 funcion()
-
-
-
-
